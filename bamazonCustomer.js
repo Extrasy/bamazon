@@ -27,28 +27,69 @@ connection.connect(function(err) {
         for (var i = 0; i < results.length; i++) {
           console.log(results[i].item_id + " | " + results[i].product_name + " | " + "$" + results[i].price);
         }
-      })
+      });
       selection();
   };
 function selection(){
+  connection.query("SELECT * FROM products", function(err, results) {
+
+
   inquirer
         .prompt([
           {
           name: "selectItem",
-          type: "rawlist",
+          type: "input",
+         
           choices: function() {
             var choiceArray = [];
             for (var i = 0; i < results.length; i++) {
-              choiceArray.push(results[i].item_name);
+              choiceArray.push(results[i].product_name);
             }
             return choiceArray;
           },
-          message : "Which item would you like to purchase?"
+          message : "Which item would you like to purchase?",
         },
         {
-        name :"item",
-        type : "input",
-        message : "how many items?"
+          name: "qnty",
+          type: "input",
+          message: "What quantity do you need?"
         }
-        ])
+      
+      ])
+        .then(function(answer) {
+          // get the information of the chosen item
+          var chosenItem;
+          for (var i = 0; i < results.length; i++) {
+            if (results[i].product_name === answer.selectItem) {
+              chosenItem = results[i];
+            }
+          }
+          console.log(answer);
+
+          if (chosenItem.stock_quantity > parseInt(answer.qnty)) {
+            // bid was high enough, so update db, let the user know, and start over
+            connection.query(
+              "UPDATE products SET ? WHERE ?",
+              [
+                {
+                  stock_quantity: answer.qnty
+                },
+                {
+                  item_id: chosenItem.item_id
+                }
+              ],
+              function(error) {
+                if (error) throw err;
+                console.log("Order placed successfully!");
+                start();
+              }
+            );
+          }
+          else {
+            // bid wasn't high enough, so apologize and start over
+            console.log("Your order is too large, please try again...");
+            start();
+          }
+        });
+      });
 }
